@@ -57,7 +57,7 @@ export async function createNote(noteData: CreateNoteRequest): Promise<string> {
 
 export async function updateNote(id: string, updates: UpdateNoteRequest): Promise<Note> {
     const response = await fetch(ENDPOINTS.UPDATE_NOTE(id), {
-        method: 'PATCH',
+        method: 'POST',
         headers: {
             'Content-Type': 'application/json',
         },
@@ -75,7 +75,10 @@ export async function updateNote(id: string, updates: UpdateNoteRequest): Promis
 
 export async function deleteNote(id: string): Promise<boolean> {
     const response = await fetch(ENDPOINTS.DELETE_NOTE(id), {
-        method: 'DELETE',
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json',
+        },
     })
     if (!response.ok) {
         throw new Error(`删除笔记失败: ${response.status}`)

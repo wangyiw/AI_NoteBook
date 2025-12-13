@@ -276,7 +276,7 @@ async def createNote(request: CreateNoteRequest):
     return await process_response({"id": note_id}, message="创建笔记成功")
 
 
-@app.patch("/updateNote/{note_id}", tags=["更新笔记"])
+@app.post("/updateNote/{note_id}", tags=["更新笔记"])
 async def updateNote(note_id: str, request: UpdateNoteRequest):
     """
     更新笔记（标题和内容）
@@ -297,7 +297,7 @@ async def updateNote(note_id: str, request: UpdateNoteRequest):
     return await process_response(updated_note, message="更新笔记成功")
 
 
-@app.delete("/deleteNote/{note_id}", tags=["删除笔记"])
+@app.post("/deleteNote/{note_id}", tags=["删除笔记"])
 async def deleteNote(note_id: str):
     """
     删除笔记（软删除）
