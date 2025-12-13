@@ -29,9 +29,7 @@ class Settings(BaseSettings):
 
     LLM_URL: Optional[str] = None
     LLM_API_KEY: Optional[str] = None
-    LLM_SCENE_ID: Optional[str] = None
-    LLM_MODEL_CONFIG_URL: Optional[str] = None
-    LLM_MODEL_CONFIG_FILE: Optional[str] = None
+
 
     MYSQL_HOST: Optional[str] = None
     MYSQL_PORT: Optional[int] = None

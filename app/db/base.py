@@ -115,3 +115,4 @@ class DB(Generic[ModelType]):
         finally:
             if should_close:
                 session.close()
+

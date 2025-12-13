@@ -170,7 +170,12 @@ async def health_check():
     data = {"timestamp": datetime.now().strftime("%Y-%m-%d %H:%M:%S")}
     return await process_response(data, message="healthy")
 
-
+@app.get("/getNoteList",tags = ["获取笔记列表"])
+async def getNoteList():
+    noteList = NoteService.get_note_list()
+    return noteList
+@app.post("/textStream",tags = ["流式输出润色笔记"])
+async def textStreamGenerator()
 # ==================== 主程序入口 ====================
 
 if __name__ == "__main__":
