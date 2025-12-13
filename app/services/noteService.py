@@ -9,7 +9,7 @@ import asyncio
 
 
 def UUIDGenerator() -> str:
-    return str(uuid.uuid16())
+    return str(uuid.uuid4().hex)
 
 class NoteService:
     def __init__(self):
@@ -18,7 +18,7 @@ class NoteService:
     def get_note(self, id: str, db: Optional[Session] = None) -> Optional[Note]:
         return self.note_repo.get_by_id(id, db=db)
     def get_note_list(self, db: Optional[Session] = None) -> List[Note]:
-        return self.note_repo.get_all(db=db)
+        return self.note_repo.list_all(db=db)
 
     def create_note(self,note: Note,db:Session)-> str:
         """

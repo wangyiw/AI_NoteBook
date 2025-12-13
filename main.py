@@ -3,6 +3,7 @@ from fastapi import FastAPI, HTTPException, Request, status as http_status
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse, StreamingResponse
 from fastapi.exceptions import RequestValidationError
+from fastapi.encoders import jsonable_encoder
 from typing import Optional, Dict, Any
 from contextlib import asynccontextmanager
 import logging
@@ -16,7 +17,10 @@ from app.core.llm import LLMConf
 from app.core.exceptions import CommonException
 from app.services.noteService import NoteService, NoteStreamService
 from app.models.request.streamRequest import StreamRequest
+from app.models.request.noteRequest import CreateNoteRequest, UpdateNoteRequest
 from app.models.response.streamResponse import StreamResponse
+from app.models.entity.note import Note
+from app.db.base import Base, engine
 
 # 初始化日志
 logger = logging.getLogger(__name__)
@@ -28,29 +32,21 @@ async def lifespan(app: FastAPI):
     替代旧的startup和shutdown事件处理器
     """
     # Startup逻辑
-    logger.info("Journey Poster 服务正在启动...")
-    
     try:
-        logger.info(f"Journey Poster 服务启动 - 环境: {ENV}")
-        
+        logger.info(f"AI Notebook 服务启动 - 环境: {ENV}")
+
+        Base.metadata.create_all(bind=engine)# 启动自动建表
+
         # 验证关键配置
-        logger.info(f"LLM_URL: {settings.LLM_URL}")
-        logger.info(f"LLM_API_KEY: {'已配置' if settings.LLM_API_KEY else '未配置'}")
-        
-        # 初始化图片生成服务
-        if settings.LLM_API_KEY and settings.LLM_URL:
-            logger.info("火山豆包初始化成功")
-        else:
-            logger.warning("火山豆包配置不完整，请检查环境变量")
-        
-        logger.info("Journey Poster 服务启动完成")
+        if not settings.LLM_API_KEY or not settings.LLM_URL:
+            logger.warning("LLM 配置不完整，请检查环境变量")
         
         # 运行应用
         yield
         
     finally:
         # Shutdown逻辑
-        logger.info("Journey Poster 服务正在关闭")
+        logger.info("AI Notebook 服务正在关闭")
         
         try:
             # 清理资源
@@ -58,7 +54,7 @@ async def lifespan(app: FastAPI):
             
             # 这里可以添加需要清理的资源，比如关闭数据库连接、清理缓存等
             
-            logger.info("Journey Poster 服务关闭完成")
+            logger.info("AI Notebook 服务关闭完成")
         except Exception as e:
             logger.error(f"服务关闭时出错: {e}")
 
@@ -84,13 +80,14 @@ async def process_response(data: Dict[str, Any], status: int = 200, success: boo
     Returns:
         JSONResponse对象
     """
+    encoded_data = jsonable_encoder(data)
     return JSONResponse(
         status_code=status,
         content={
             "success": success,
             "status": status,
             "message": message or ("成功" if success else "失败"),
-            "data": data
+            "data": encoded_data
         }
     )
 
@@ -239,6 +236,75 @@ async def textStreamGenerator(request: StreamRequest):
             "X-Content-Id": request.content_id,
         }
     )
+
+
+@app.get("/getNote/{note_id}", tags=["获取单个笔记"])
+async def getNote(note_id: str):
+    """
+    根据ID获取单个笔记
+    """
+    note_service = NoteService()
+    note = note_service.get_note(note_id)
+    if note is None:
+        raise HTTPException(status_code=404, detail="笔记不存在")
+    return await process_response(note, message="获取笔记成功")
+
+
+@app.post("/createNote", tags=["创建笔记"])
+async def createNote(request: CreateNoteRequest):
+    """
+    创建新笔记
+    """
+    note_service = NoteService()
+
+    title = request.title
+    content = request.content
+    if (title is None or not title.strip()) and (content is None or not content.strip()):
+        title = f"新笔记 {datetime.now().strftime('%Y-%m-%d %H:%M')}"
+    note = Note(
+        id="",
+        title=title,
+        content=content,
+        tags=None,
+        created_at=datetime.now(),
+        updated_at=datetime.now(),
+        deleted_at=None
+    )
+    note_id = note_service.create_note(note, db=None)
+    return await process_response({"id": note_id}, message="创建笔记成功")
+
+
+@app.patch("/updateNote/{note_id}", tags=["更新笔记"])
+async def updateNote(note_id: str, request: UpdateNoteRequest):
+    """
+    更新笔记（标题和内容）
+    """
+    note_service = NoteService()
+    updates = {}
+    if request.title is not None:
+        updates["title"] = request.title
+    if request.content is not None:
+        updates["content"] = request.content
+    
+    if not updates:
+        raise HTTPException(status_code=400, detail="没有需要更新的字段")
+    
+    updated_note = note_service.update_note(note_id, updates, db=None)
+    if updated_note is None:
+        raise HTTPException(status_code=404, detail="笔记不存在")
+    return await process_response(updated_note, message="更新笔记成功")
+
+
+@app.delete("/deleteNote/{note_id}", tags=["删除笔记"])
+async def deleteNote(note_id: str):
+    """
+    删除笔记（软删除）
+    """
+    note_service = NoteService()
+    success = note_service.delete_note(note_id, db=None)
+    if not success:
+        raise HTTPException(status_code=404, detail="笔记不存在")
+    return await process_response(None, message="删除笔记成功")
 
 
 # ==================== 主程序入口 ====================

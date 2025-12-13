@@ -79,12 +79,14 @@ class NoteRepo(DB[Note]):
         软删除笔记（设置 deleted_at 字段为当前时间）
         """
         note = self.get(id, db=db)
-        if note and note.deleted_at is None:
-            note.deleted_at = datetime.now()
-            note.updated_at = datetime.now()
-            self.update(note, db=db)
-            return True
-        return False
+        if note is None or note.deleted_at is not None:
+            return False
+
+        updates = {
+            "deleted_at": datetime.now(),
+        }
+        updated = self.update(id, updates, db=db)
+        return updated is not None
 
     def hard_delete(self, id: str, db: Optional[Session] = None) -> bool:
         """

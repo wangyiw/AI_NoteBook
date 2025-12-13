@@ -1,0 +1,45 @@
+.container {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    padding: 60px 20px;
+    gap: 12px;
+}
+
+.icon {
+    font-size: 64px;
+    opacity: 0.6;
+}
+
+.title {
+    font-size: 18px;
+    font-weight: 500;
+    color: #333;
+}
+
+.description {
+    font-size: 14px;
+    color: #666;
+    text-align: center;
+}
+
+.actionButton {
+    margin-top: 8px;
+    padding: 12px 32px;
+    background-color: #4a90d9;
+    color: white;
+    border: none;
+    border-radius: 8px;
+    font-size: 16px;
+    font-weight: 500;
+    transition: background-color 0.2s;
+}
+
+.actionButton:hover {
+    background-color: #3a7bc8;
+}
+
+.actionButton:active {
+    background-color: #2d6cb5;
+}

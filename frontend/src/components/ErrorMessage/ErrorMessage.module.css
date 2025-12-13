@@ -1,0 +1,36 @@
+.container {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    padding: 40px;
+    gap: 16px;
+}
+
+.icon {
+    font-size: 48px;
+}
+
+.message {
+    color: #d32f2f;
+    font-size: 14px;
+    text-align: center;
+}
+
+.retryButton {
+    padding: 8px 24px;
+    background-color: #4a90d9;
+    color: white;
+    border: none;
+    border-radius: 6px;
+    font-size: 14px;
+    transition: background-color 0.2s;
+}
+
+.retryButton:hover {
+    background-color: #3a7bc8;
+}
+
+.retryButton:active {
+    background-color: #2d6cb5;
+}
