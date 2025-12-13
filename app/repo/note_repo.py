@@ -5,7 +5,7 @@ from typing import Optional, List
 from sqlalchemy.orm import Session
 from app.models.entity.note import Note
 from app.db.base import DB, SessionLocal
-from sqlalchemy import select
+from sqlalchemy import select, or_
 
 
 
@@ -19,17 +19,17 @@ class NoteRepo(DB[Note]):
         自动过滤已软删除的笔记
         """
         note = self.get(id, db=db)
-        if note and note.deleted_at is None:
+        if note and (getattr(note, "is_delete", 0) in (0, None)):
             return note
         return None
 
-    def list_all(self, db: Optional[Session] = None, offset: int = 0, limit: int = 100) -> List[Note]:
+    def list_all(self, db: Optional[Session] = None) -> List[Note]:
         """
-        获取所有未删除的笔记
+        获取所有未删除的笔记,按更新时间降序排列
         """
         session, should_close = self._ensure_session(db)
         try:
-            stmt = select(Note).where(Note.deleted_at.is_(None)).offset(offset).limit(limit)
+            stmt = select(Note).where(or_(Note.is_delete == 0, Note.is_delete.is_(None))).order_by(Note.updated_at.desc())
             return list(session.scalars(stmt).all())
         finally:
             if should_close:
@@ -39,7 +39,7 @@ class NoteRepo(DB[Note]):
         session, should_close = self._ensure_session(db)
         try:
             note = session.get(Note, id)
-            if note is None or note.deleted_at is not None:
+            if note is None or getattr(note, "is_delete", 0) not in (0, None):
                 return None
             for k, v in updates.items():
                 if hasattr(note, k):
@@ -71,19 +71,26 @@ class NoteRepo(DB[Note]):
         更新笔记
         自动更新 updated_at
         """
-        note.updated_at = datetime.now()
-        return self.update(note, db=db)
+        updates = {
+            "title": note.title,
+            "content": note.content,
+            "tags": note.tags,
+        }
+        updated = self.update(note.id, updates, db=db)
+        if updated is None:
+            raise ValueError("笔记不存在")
+        return updated
 
     def soft_delete(self, id: str, db: Optional[Session] = None) -> bool:
         """
         软删除笔记（设置 deleted_at 字段为当前时间）
         """
         note = self.get(id, db=db)
-        if note is None or note.deleted_at is not None:
+        if note is None or getattr(note, "is_delete", 0) not in (0, None):
             return False
 
         updates = {
-            "deleted_at": datetime.now(),
+            "is_delete": 1,
         }
         updated = self.update(id, updates, db=db)
         return updated is not None

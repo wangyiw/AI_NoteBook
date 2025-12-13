@@ -16,7 +16,7 @@ export async function fetchNoteList(): Promise<Note[]> {
         throw new Error(`获取笔记列表失败: ${response.status}`)
     }
     const data: NoteListResponse = await response.json()
-    if (!data.success) {
+    if (data.code !== 0) {
         throw new Error(data.message || '获取笔记列表失败')
     }
     return data.data.list
@@ -31,7 +31,7 @@ export async function fetchNoteDetail(id: string): Promise<Note | null> {
         throw new Error(`获取笔记详情失败: ${response.status}`)
     }
     const data: NoteResponse = await response.json()
-    if (!data.success) {
+    if (data.code !== 0) {
         throw new Error(data.message || '获取笔记详情失败')
     }
     return data.data
@@ -49,7 +49,7 @@ export async function createNote(noteData: CreateNoteRequest): Promise<string> {
         throw new Error(`创建笔记失败: ${response.status}`)
     }
     const data: ApiResponse<{ id: string }> = await response.json()
-    if (!data.success) {
+    if (data.code !== 0) {
         throw new Error(data.message || '创建笔记失败')
     }
     return data.data.id
@@ -67,7 +67,7 @@ export async function updateNote(id: string, updates: UpdateNoteRequest): Promis
         throw new Error(`更新笔记失败: ${response.status}`)
     }
     const data: NoteResponse = await response.json()
-    if (!data.success || !data.data) {
+    if (data.code !== 0 || !data.data) {
         throw new Error(data.message || '更新笔记失败')
     }
     return data.data
@@ -81,7 +81,7 @@ export async function deleteNote(id: string): Promise<boolean> {
         throw new Error(`删除笔记失败: ${response.status}`)
     }
     const data: ApiResponse<null> = await response.json()
-    return data.success
+    return data.code === 0
 }
 
 export function createStreamConnection(

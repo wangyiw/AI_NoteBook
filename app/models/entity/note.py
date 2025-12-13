@@ -1,6 +1,6 @@
 from datetime import datetime
 from typing import Optional
-from sqlalchemy import String, Text, DateTime, Index
+from sqlalchemy import String, Text, DateTime, Index, Integer
 from sqlalchemy.orm import Mapped, mapped_column
 
 from app.db.base import Base
@@ -21,6 +21,8 @@ class Note(Base):
     deleted_at  DATETIME NULL
     );
 
+    当前数据库字段已调整为 is_delete（int，0 未删除 / 1 已删除），因此 ORM 模型使用 is_delete 字段。
+
     CREATE INDEX idx_note_updated_at ON note(updated_at);
     CREATE INDEX idx_note_deleted_at ON note(deleted_at);
 
@@ -33,9 +35,9 @@ class Note(Base):
     tags: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
     created_at: Mapped[datetime] = mapped_column(DateTime, nullable=False)
     updated_at: Mapped[datetime] = mapped_column(DateTime, nullable=False)
-    deleted_at: Mapped[Optional[datetime]] = mapped_column(DateTime, nullable=True)
+    is_delete: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
 
     __table_args__ = (
         Index("idx_note_updated_at", "updated_at"),
-        Index("idx_note_deleted_at", "deleted_at"),
+        Index("idx_note_deleted_at", "is_delete"),
     )

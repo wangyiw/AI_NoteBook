@@ -6,6 +6,7 @@ from fastapi.exceptions import RequestValidationError
 from fastapi.encoders import jsonable_encoder
 from typing import Optional, Dict, Any
 from contextlib import asynccontextmanager
+from starlette.exceptions import HTTPException as StarletteHTTPException
 import logging
 from datetime import datetime
 import uvicorn
@@ -66,27 +67,59 @@ app = FastAPI(
     lifespan=lifespan  
 )
 
+@app.exception_handler(RequestValidationError)
+async def request_validation_exception_handler(request: Request, exc: RequestValidationError):
+    error_details = []
+    for error in exc.errors():
+        error_details.append({
+            "loc": error.get("loc"),
+            "msg": error.get("msg"),
+            "type": error.get("type"),
+            "ctx": error.get("ctx"),
+        })
+    logger.error(f"参数验证错误: {str(exc)}")
+    return JSONResponse(
+        status_code=http_status.HTTP_422_UNPROCESSABLE_ENTITY,
+        content={
+            "code": http_status.HTTP_422_UNPROCESSABLE_ENTITY,
+            "message": "参数验证失败",
+            "data": {"detail": error_details},
+        },
+    )
+
+
+@app.exception_handler(StarletteHTTPException)
+async def http_exception_handler(request: Request, exc: StarletteHTTPException):
+    logger.error(f"HTTP异常: {exc.status_code} - {exc.detail}")
+    return JSONResponse(
+        status_code=exc.status_code,
+        content={
+            "code": exc.status_code,
+            "message": exc.detail,
+            "data": None,
+        },
+    )
+
 # 统一响应处理函数
-async def process_response(data: Dict[str, Any], status: int = 200, success: bool = True, message: Optional[str] = None) -> JSONResponse:
+async def process_response(data: Any, status: int = 200, code: int = 0, message: Optional[str] = None) -> JSONResponse:
     """
     统一处理API响应
     
     Args:
         data: 待处理的响应数据
-        status: HTTP状态码
-        success: 响应是否成功
+        code: 0-响应成功,其他状态码
         message: 响应消息
         
     Returns:
         JSONResponse对象
     """
     encoded_data = jsonable_encoder(data)
+    default_message = "成功" if code == 0 else "失败"
     return JSONResponse(
         status_code=status,
         content={
-            "success": success,
-            "status": status,
-            "message": message or ("成功" if success else "失败"),
+            "code": code,
+            "message": message or default_message,
             "data": encoded_data
         }
     )
@@ -108,42 +141,13 @@ app.add_middleware(
 async def exception_middleware(request: Request, call_next):
     try:
         return await call_next(request)
-    except RequestValidationError as e:
-        error_details = []
-        for error in e.errors():
-            error_details.append({
-                "loc": error["loc"],
-                "msg": error["msg"],
-                "type": error["type"]
-            })
-        logger.error(f"参数验证错误: {str(e)}")
-        return JSONResponse(
-            status_code=http_status.HTTP_422_UNPROCESSABLE_ENTITY,
-            content={
-                "success": False,
-                "status": http_status.HTTP_422_UNPROCESSABLE_ENTITY,
-                "message": "参数验证失败",
-                "data": {"detail": error_details}
-            }
-        )
-    except HTTPException as e:
-        logger.error(f"HTTP异常: {e.status_code} - {e.detail}")
-        return JSONResponse(
-            status_code=e.status_code,
-            content={
-                "success": False,
-                "status": e.status_code,
-                "message": e.detail,
-                "data": None
-            }
-        )
     except CommonException as e:
         logger.error(f"自定义异常: {e.status} - {e.message}")
+        error_code = e.error_code.code if getattr(e, "error_code", None) is not None else e.status
         return JSONResponse(
             status_code=e.status,
             content={
-                "success": e.success,
-                "status": e.status,
+                "code": error_code,
                 "message": e.message,
                 "data": e.data
             }
@@ -152,10 +156,8 @@ async def exception_middleware(request: Request, call_next):
         logger.error(f"请求异常: {type(e).__name__}: {str(e)}")
         return JSONResponse(
             status_code=500,
-            content={"success": False, "status": 500, "message": "服务器内部错误", "data": None}
+            content={"code": 500, "message": "服务器内部错误", "data": None}
         )
-
-
 
 @app.get("/")
 async def root():
@@ -268,7 +270,7 @@ async def createNote(request: CreateNoteRequest):
         tags=None,
         created_at=datetime.now(),
         updated_at=datetime.now(),
-        deleted_at=None
+        is_delete=0
     )
     note_id = note_service.create_note(note, db=None)
     return await process_response({"id": note_id}, message="创建笔记成功")

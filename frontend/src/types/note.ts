@@ -5,12 +5,11 @@ export interface Note {
     tags: string | null
     created_at: string
     updated_at: string
-    deleted_at: string | null
+    is_delete: number
 }
 
 export interface NoteListResponse {
-    success: boolean
-    status: number
+    code: number
     message: string
     data: {
         list: Note[]
@@ -18,8 +17,7 @@ export interface NoteListResponse {
 }
 
 export interface NoteResponse {
-    success: boolean
-    status: number
+    code: number
     message: string
     data: Note | null
 }
@@ -46,8 +44,7 @@ export interface StreamResponse {
 }
 
 export interface ApiResponse<T> {
-    success: boolean
-    status: number
+    code: number
     message: string
     data: T
 }

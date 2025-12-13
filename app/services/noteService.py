@@ -5,6 +5,7 @@ from sqlalchemy.orm import Session
 import uuid
 from setting import settings
 from app.core.llm import LLMModel, LLMConf
+from app.core.prompt import BASE_PROMPT_TEMPLATE
 import asyncio
 
 
@@ -52,7 +53,7 @@ class NoteStreamService(LLMModel):
             raise ValueError("LLM_URL 未配置，无法初始化 LLM 客户端")
         super().__init__(conf)
 
-    async def stream_generate(self, prompt: str, test_mode: bool = False):
+    async def stream_generate(self, userPrompt: str, test_mode: bool = False):
         """
         异步流式生成文字
         """
@@ -60,6 +61,7 @@ class NoteStreamService(LLMModel):
             # 测试模式下直接返回模拟数据
             yield "测试模式下生成的文字内容..."
             return
+        prompt = BASE_PROMPT_TEMPLATE.replace("{{text}}", userPrompt)
         
         stream = await self.chat(
             [{"role": "user", "content": prompt}],
