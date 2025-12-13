@@ -155,6 +155,21 @@
     margin-bottom: 24px;
 }
 
+.lineCounter {
+    position: fixed;
+    right: 16px;
+    bottom: 16px;
+    z-index: 90;
+    padding: 6px 10px;
+    border-radius: 8px;
+    background: rgba(0, 0, 0, 0.6);
+    color: #fff;
+    font-size: 12px;
+    line-height: 1;
+    user-select: none;
+    pointer-events: none;
+}
+
 /* 移动端响应式 */
 @media (max-width: 768px) {
     .header {
@@ -221,5 +236,10 @@
         font-size: 14px;
         line-height: 1.7;
         min-height: 250px;
+    }
+
+    .lineCounter {
+        right: 5px;
+        bottom: 5px;
     }
 }

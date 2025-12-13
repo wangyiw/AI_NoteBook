@@ -25,16 +25,20 @@ export function AIPolishModal({
     onAccept,
     onReject,
 }: AIPolishModalProps) {
-    const [generatedText, setGeneratedText] = useState('')
+    const [hasGeneratedText, setHasGeneratedText] = useState(false)
     const [isGenerating, setIsGenerating] = useState(false)
     const [error, setError] = useState<string | null>(null)
     const requestIdRef = useRef<string>('')
     const abortControllerRef = useRef<AbortController | null>(null)
-    const chunksRef = useRef<string[]>([])
     const bufferedRef = useRef<string>('')
     const totalLenRef = useRef<number>(0)
     const rafScheduledRef = useRef<boolean>(false)
     const timeoutIdRef = useRef<number | null>(null)
+
+    const generatedTextRef = useRef<string>('')
+    const generatedContainerRef = useRef<HTMLDivElement | null>(null)
+    const generatedTextNodeRef = useRef<Text | null>(null)
+    const hasGeneratedTextRef = useRef<boolean>(false)
 
     const modalRef = useRef<HTMLDivElement | null>(null)
     const [position, setPosition] = useState<{ x: number; y: number } | null>(null)
@@ -60,9 +64,20 @@ export function AIPolishModal({
         rafScheduledRef.current = false
         if (!bufferedRef.current) return
 
-        chunksRef.current.push(bufferedRef.current)
+        const chunk = bufferedRef.current
         bufferedRef.current = ''
-        setGeneratedText(chunksRef.current.join(''))
+
+        generatedTextRef.current += chunk
+        if (generatedTextNodeRef.current) {
+            generatedTextNodeRef.current.appendData(chunk)
+        } else if (generatedContainerRef.current) {
+            generatedContainerRef.current.textContent = generatedTextRef.current
+        }
+
+        if (!hasGeneratedTextRef.current) {
+            hasGeneratedTextRef.current = true
+            setHasGeneratedText(true)
+        }
     }, [])
 
     const scheduleFlush = useCallback(() => {
@@ -87,14 +102,24 @@ export function AIPolishModal({
     const startGeneration = useCallback(() => {
         const newRequestId = generateRequestId()
         requestIdRef.current = newRequestId
-        setGeneratedText('')
+        setHasGeneratedText(false)
         setError(null)
         setIsGenerating(true)
 
         cancelFlushSchedule()
-        chunksRef.current = []
         bufferedRef.current = ''
         totalLenRef.current = 0
+
+        hasGeneratedTextRef.current = false
+        generatedTextRef.current = ''
+        if (generatedContainerRef.current) {
+            generatedContainerRef.current.textContent = ''
+            const textNode = document.createTextNode('')
+            generatedTextNodeRef.current = textNode
+            generatedContainerRef.current.appendChild(textNode)
+        } else {
+            generatedTextNodeRef.current = null
+        }
 
         const prompt = originalText
 
@@ -200,15 +225,22 @@ export function AIPolishModal({
         if (abortControllerRef.current) {
             abortControllerRef.current.abort()
         }
-        onAccept(generatedText)
+        onAccept(generatedTextRef.current)
     }
 
     const handleReject = () => {
         if (abortControllerRef.current) {
             abortControllerRef.current.abort()
         }
-        setGeneratedText('')
+        setHasGeneratedText(false)
         setError(null)
+
+        hasGeneratedTextRef.current = false
+        generatedTextRef.current = ''
+        generatedTextNodeRef.current = null
+        if (generatedContainerRef.current) {
+            generatedContainerRef.current.textContent = ''
+        }
         onReject()
     }
 
@@ -274,7 +306,8 @@ export function AIPolishModal({
                             {isGenerating && <span className={styles.generating}>生成中...</span>}
                         </div>
                         <div className={styles.generatedText}>
-                            {generatedText || (isGenerating ? '正在生成...' : '')}
+                            {!hasGeneratedText && isGenerating ? '正在生成...' : null}
+                            <div className={styles.generatedContent} ref={generatedContainerRef} />
                             {error && <div className={styles.error}>{error}</div>}
                         </div>
                     </div>
@@ -299,7 +332,7 @@ export function AIPolishModal({
                     <button
                         className={styles.acceptButton}
                         onClick={handleAccept}
-                        disabled={isGenerating || !generatedText}
+                        disabled={isGenerating || !hasGeneratedText}
                     >
                         接受
                     </button>

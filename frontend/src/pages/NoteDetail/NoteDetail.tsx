@@ -22,6 +22,8 @@ export function NoteDetail() {
     const [title, setTitle] = useState('')
     const [content, setContent] = useState('')
 
+    const lineCount = Math.max(1, content.split(/\r\n|\r|\n/).length)
+
     const [showPolishModal, setShowPolishModal] = useState(false)
     const [polishMode, setPolishMode] = useState<'full' | 'selection'>('full')
     const [polishText, setPolishText] = useState('')
@@ -245,6 +247,8 @@ export function NoteDetail() {
                 onAccept={handlePolishAccept}
                 onReject={handlePolishReject}
             />
+
+            <div className={styles.lineCounter}>行数: {lineCount}</div>
         </div>
     )
 }
