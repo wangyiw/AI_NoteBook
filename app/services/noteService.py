@@ -1,5 +1,5 @@
 from app.repo.note_repo import NoteRepo
-from app.models.note import Note
+from app.models.entity.note import Note
 from typing import Optional, List
 from sqlalchemy.orm import Session
 import uuid

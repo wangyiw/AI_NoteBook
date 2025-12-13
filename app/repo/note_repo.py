@@ -3,7 +3,7 @@
 from datetime import datetime
 from typing import Optional, List
 from sqlalchemy.orm import Session
-from app.models.note import Note
+from app.models.entity.note import Note
 from app.db.base import DB, SessionLocal
 from sqlalchemy import select
 
@@ -34,6 +34,27 @@ class NoteRepo(DB[Note]):
         finally:
             if should_close:
                 session.close()
+
+    def update(self, id: str, updates: dict, db: Optional[Session] = None) -> Optional[Note]:
+        session, should_close = self._ensure_session(db)
+        try:
+            note = session.get(Note, id)
+            if note is None or note.deleted_at is not None:
+                return None
+            for k, v in updates.items():
+                if hasattr(note, k):
+                    setattr(note, k, v)
+            note.updated_at = datetime.now()
+            session.add(note)
+            session.commit()
+            session.refresh(note)
+            return note
+        finally:
+            if should_close:
+                session.close()
+
+    def delete(self, id: str, db: Optional[Session] = None) -> bool:
+        return self.soft_delete(id, db=db)
 
     def create_note(self, note: Note, db: Optional[Session] = None) -> Note:
         """

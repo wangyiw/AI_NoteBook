@@ -1,7 +1,7 @@
 # 提供 fastapi接口
 from fastapi import FastAPI, HTTPException, Request, status as http_status
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.responses import JSONResponse
+from fastapi.responses import JSONResponse, StreamingResponse
 from fastapi.exceptions import RequestValidationError
 from typing import Optional, Dict, Any
 from contextlib import asynccontextmanager
@@ -14,6 +14,9 @@ from setting import settings, ENV
 from app.core.llm import LLMModel
 from app.core.llm import LLMConf
 from app.core.exceptions import CommonException
+from app.services.noteService import NoteService, NoteStreamService
+from app.models.request.streamRequest import StreamRequest
+from app.models.response.streamResponse import StreamResponse
 
 # 初始化日志
 logger = logging.getLogger(__name__)
@@ -33,7 +36,6 @@ async def lifespan(app: FastAPI):
         # 验证关键配置
         logger.info(f"LLM_URL: {settings.LLM_URL}")
         logger.info(f"LLM_API_KEY: {'已配置' if settings.LLM_API_KEY else '未配置'}")
-        logger.info(f"LLM_SCENE_ID: {settings.LLM_SCENE_ID}")
         
         # 初始化图片生成服务
         if settings.LLM_API_KEY and settings.LLM_URL:
@@ -172,10 +174,73 @@ async def health_check():
 
 @app.get("/getNoteList",tags = ["获取笔记列表"])
 async def getNoteList():
-    noteList = NoteService.get_note_list()
-    return noteList
+    note_service = NoteService()
+    noteList = note_service.get_note_list()
+    return await process_response({"list": noteList}, message="获取笔记列表成功")
+
 @app.post("/textStream",tags = ["流式输出润色笔记"])
-async def textStreamGenerator()
+async def textStreamGenerator(request: StreamRequest):
+    """
+    流式输出润色笔记
+    返回 SSE 格式的流式响应，每个 chunk 都是 StreamResponse 格式
+    
+    content_id 的作用：
+    - 区分“谁发的 update / 谁在编辑”（presence 显示）
+    - 多人同一 note 同时操作时，做日志与限流维度
+    - 断线重连时把会话关联回来
+    """
+    
+    async def generate_stream():
+        stream_service = NoteStreamService()
+        content_id = request.content_id
+        max_retries = 1
+        
+        for attempt in range(max_retries + 1):
+            try:
+                async for chunk in stream_service.stream_generate(request.prompt):
+                    response = StreamResponse(
+                        content_id=content_id,
+                        message=chunk,
+                        done=False
+                    )
+                    yield f"data: {response.model_dump_json()}\n\n"
+                
+                # 流结束，发送完成标记
+                done_response = StreamResponse(
+                    content_id=content_id,
+                    message="",
+                    done=True
+                )
+                yield f"data: {done_response.model_dump_json()}\n\n"
+                return
+                
+            except Exception as e:
+                logger.error(f"LLM 调用失败 (attempt {attempt + 1}/{max_retries + 1}): {str(e)}")
+                if attempt < max_retries:
+                    logger.info(f"重试中...")
+                    await asyncio.sleep(0.5)
+                    continue
+                else:
+                    # 重试失败，返回错误响应
+                    error_response = StreamResponse(
+                        content_id=content_id,
+                        message=f"生成失败: {str(e)}",
+                        done=True
+                    )
+                    yield f"data: {error_response.model_dump_json()}\n\n"
+                    return
+    
+    return StreamingResponse(
+        generate_stream(),
+        media_type="text/event-stream",
+        headers={
+            "Cache-Control": "no-cache",
+            "Connection": "keep-alive",
+            "X-Content-Id": request.content_id,
+        }
+    )
+
+
 # ==================== 主程序入口 ====================
 
 if __name__ == "__main__":
