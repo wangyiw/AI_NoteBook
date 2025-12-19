@@ -1,0 +1,3 @@
+@echo off
+echo Starting Yjs WebSocket Server...
+npx y-websocket-server --port 8124

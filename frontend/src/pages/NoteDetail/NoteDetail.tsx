@@ -5,6 +5,7 @@ import { AIPolishModal } from '../../components/AIPolishModal/AIPolishModal'
 import { ErrorMessage } from '../../components/ErrorMessage/ErrorMessage'
 import { Loading } from '../../components/Loading/Loading'
 import { useDebounce } from '../../hooks/useDebounce'
+import { useYjsCollaboration } from '../../hooks/useYjsCollaboration'
 import type { Note } from '../../types/note'
 import styles from './NoteDetail.module.css'
 
@@ -21,6 +22,7 @@ export function NoteDetail() {
 
     const [title, setTitle] = useState('')
     const [content, setContent] = useState('')
+    const [isYjsReady, setIsYjsReady] = useState(false)
 
     const lineCount = Math.max(1, content.split(/\r\n|\r|\n/).length)
 
@@ -31,6 +33,25 @@ export function NoteDetail() {
     const [selectionEnd, setSelectionEnd] = useState(0)
 
     const textareaRef = useRef<HTMLTextAreaElement>(null)
+    const isLocalChangeRef = useRef(false)
+
+    const {
+        isConnected,
+        isSynced,
+        replaceText,
+    } = useYjsCollaboration({
+        noteId: id || '',
+        initialContent: note?.content || '',
+        onContentChange: (newContent) => {
+            if (!isLocalChangeRef.current) {
+                setContent(newContent)
+            }
+            isLocalChangeRef.current = false
+        },
+        onSynced: () => {
+            setIsYjsReady(true)
+        },
+    })
 
     const loadNote = useCallback(async () => {
         if (!id) return
@@ -83,8 +104,23 @@ export function NoteDetail() {
 
     const handleContentChange = (e: React.ChangeEvent<HTMLTextAreaElement>) => {
         const newContent = e.target.value
+        const textarea = e.target
+        const cursorPos = textarea.selectionStart
+
+        isLocalChangeRef.current = true
         setContent(newContent)
+
+        if (isSynced) {
+            replaceText(0, content.length, newContent)
+        }
+
         debouncedSave(title, newContent)
+
+        setTimeout(() => {
+            if (textareaRef.current) {
+                textareaRef.current.setSelectionRange(cursorPos, cursorPos)
+            }
+        }, 0)
     }
 
     const handleDelete = async () => {
@@ -137,9 +173,17 @@ export function NoteDetail() {
         let newContent: string
         if (polishMode === 'selection') {
             newContent = content.substring(0, selectionStart) + newText + content.substring(selectionEnd)
+            if (isSynced) {
+                replaceText(selectionStart, selectionEnd, newText)
+            }
         } else {
             newContent = newText
+            if (isSynced) {
+                replaceText(0, content.length, newText)
+            }
         }
+
+        isLocalChangeRef.current = true
         setContent(newContent)
         setShowPolishModal(false)
 
@@ -198,6 +242,9 @@ export function NoteDetail() {
                     ← 返回
                 </button>
                 <div className={styles.headerRight}>
+                    {!isConnected && <span className={styles.statusIndicator} style={{ color: '#ff6b6b' }}>● 未连接</span>}
+                    {isConnected && !isSynced && <span className={styles.statusIndicator} style={{ color: '#ffa500' }}>● 同步中...</span>}
+                    {isConnected && isSynced && <span className={styles.statusIndicator} style={{ color: '#51cf66' }}>● 已连接</span>}
                     {saving && <span className={styles.savingIndicator}>保存中...</span>}
                     <button
                         className={styles.polishButton}
