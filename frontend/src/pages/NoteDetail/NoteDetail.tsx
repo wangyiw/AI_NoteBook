@@ -22,7 +22,6 @@ export function NoteDetail() {
 
     const [title, setTitle] = useState('')
     const [content, setContent] = useState('')
-    const [isYjsReady, setIsYjsReady] = useState(false)
 
     const lineCount = Math.max(1, content.split(/\r\n|\r|\n/).length)
 
@@ -39,6 +38,7 @@ export function NoteDetail() {
         isConnected,
         isSynced,
         replaceText,
+        updateContent,
     } = useYjsCollaboration({
         noteId: id || '',
         initialContent: note?.content || '',
@@ -47,9 +47,6 @@ export function NoteDetail() {
                 setContent(newContent)
             }
             isLocalChangeRef.current = false
-        },
-        onSynced: () => {
-            setIsYjsReady(true)
         },
     })
 
@@ -111,7 +108,7 @@ export function NoteDetail() {
         setContent(newContent)
 
         if (isSynced) {
-            replaceText(0, content.length, newContent)
+            updateContent(newContent)
         }
 
         debouncedSave(title, newContent)

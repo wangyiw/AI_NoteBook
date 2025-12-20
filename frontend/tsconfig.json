@@ -21,7 +21,11 @@
         "noFallthroughCasesInSwitch": true
     },
     "include": [
-        "src"
+        "src",
+        "vitest.setup.ts",
+        "../tests/frontend",
+        "tests/AIPolishModal.test.tsx",
+        "tests/createStreamConnection.test.ts"
     ],
     "references": [
         {

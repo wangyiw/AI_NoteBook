@@ -21,8 +21,18 @@ export function useYjsCollaboration({
     const [isConnected, setIsConnected] = useState(false)
     const [isSynced, setIsSynced] = useState(false)
     const isInitializedRef = useRef(false)
+    const initialContentRef = useRef(initialContent)
 
     useEffect(() => {
+        initialContentRef.current = initialContent
+    }, [initialContent])
+
+    useEffect(() => {
+        if (!noteId) {
+            setIsConnected(false)
+            setIsSynced(false)
+            return
+        }
         const ydoc = new Y.Doc()
         const ytext = ydoc.getText('content')
 
@@ -40,9 +50,10 @@ export function useYjsCollaboration({
         provider.on('sync', (isSynced: boolean) => {
             setIsSynced(isSynced)
             if (isSynced) {
-                if (!isInitializedRef.current && ytext.length === 0 && initialContent) {
+                const initText = initialContentRef.current
+                if (!isInitializedRef.current && ytext.length === 0 && initText) {
                     ydoc.transact(() => {
-                        ytext.insert(0, initialContent)
+                        ytext.insert(0, initText)
                     })
                     isInitializedRef.current = true
                 }

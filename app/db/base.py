@@ -5,7 +5,7 @@ from typing import Any, Generic, Optional, Sequence, Type, TypeVar
 
 from sqlalchemy import select
 from sqlalchemy.orm import Session
-from app.config import settings
+from setting import settings 
 
 
 class Base(DeclarativeBase):
