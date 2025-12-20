@@ -4,10 +4,11 @@ AI笔记应用，快速记录和"润色"灵感
 1.笔记的CRUD,AI流式生成润色后文本【万字不卡顿】,可选择的接受和拒绝，悬浮框形式的编辑交互
 2.✨ **实时协同编辑**（基于 Yjs CRDT），多人同时编辑同一笔记，自动冲突解决
 3.详细的 AI 交互的核心逻辑（如流处理、悬浮框组件）编写单元和组件测试。
+4.使用企业级状态库toolkit，具备重构功能
 
 ---
 
-# 快速开始（面试官开箱即用）
+# 快速开始
 
 本项目为前后端分离：
 
@@ -59,7 +60,7 @@ copy .env.example .env
 
 2. 编辑 `.env`，至少需要填写：
 
-- **LLM_URL**：模型 API Base URL（项目默认已给出）
+- **LLM_URL**：模型 API Base URL（项目默认已给出），阿里云百炼平台
 - **LLM_API_KEY**：你的模型 APIKey
 - **MySQL 配置**：`MYSQL_HOST/MYSQL_PORT/MYSQL_DATABASE/MYSQL_USERNAME/MYSQL_PASSWORD`
 
@@ -82,7 +83,7 @@ MYSQL_PASSWORD=your_password # 密钥
 ##### API Key 安全建议
 
 - **不要**把真实 `LLM_API_KEY` 写进代码或提交到仓库（本项目已通过 `.env` 读取）。
-- 面试官拿到项目时，只需要在 `.env` 中填写 `LLM_API_KEY` 即可运行。
+- 只需要在 `.env` 中填写 `LLM_API_KEY` 即可运行。
 - 如你需要录屏/截图展示，请使用脱敏后的 Key。
 
 #### C. 准备 MySQL
@@ -256,10 +257,12 @@ start-all.bat
 
 ```bash
 # 终端 1: Yjs WebSocket 服务
-npx y-websocket-server --port 8124
+set HOST=localhost
+set PORT=8124
+npx y-websocket
 
 # 终端 2: FastAPI 后端
-python main.py
+uv run python main.py
 
 # 终端 3: 前端
 cd frontend
