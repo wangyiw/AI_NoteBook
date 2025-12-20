@@ -1,9 +1,9 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { useNavigate, useParams } from 'react-router-dom'
-import { deleteNote, fetchNoteDetail, updateNote } from '../../api/noteApi'
 import { AIPolishModal } from '../../components/AIPolishModal/AIPolishModal'
 import { ErrorMessage } from '../../components/ErrorMessage/ErrorMessage'
 import { Loading } from '../../components/Loading/Loading'
+import { useDeleteNoteMutation, useGetNoteQuery, useUpdateNoteMutation } from '../../features/notes/notesApi'
 import { useDebounce } from '../../hooks/useDebounce'
 import { useYjsCollaboration } from '../../hooks/useYjsCollaboration'
 import type { Note } from '../../types/note'
@@ -14,7 +14,6 @@ export function NoteDetail() {
     const navigate = useNavigate()
 
     const [note, setNote] = useState<Note | null>(null)
-    const [loading, setLoading] = useState(true)
     const [error, setError] = useState<string | null>(null)
     const [notFound, setNotFound] = useState(false)
     const [saving, setSaving] = useState(false)
@@ -35,6 +34,16 @@ export function NoteDetail() {
     const isLocalChangeRef = useRef(false)
 
     const {
+        data: noteData,
+        isLoading: loading,
+        isError,
+        refetch,
+    } = useGetNoteQuery(id || '', { skip: !id })
+
+    const [updateNoteMutation] = useUpdateNoteMutation()
+    const [deleteNoteMutation] = useDeleteNoteMutation()
+
+    const {
         isConnected,
         isSynced,
         replaceText,
@@ -50,37 +59,39 @@ export function NoteDetail() {
         },
     })
 
-    const loadNote = useCallback(async () => {
-        if (!id) return
-        try {
-            setLoading(true)
-            setError(null)
-            setNotFound(false)
-            const data = await fetchNoteDetail(id)
-            if (!data) {
-                setNotFound(true)
-                return
-            }
-            setNote(data)
-            setTitle(data.title || '')
-            setContent(data.content || '')
-        } catch (err) {
-            setError(err instanceof Error ? err.message : '加载失败')
-        } finally {
-            setLoading(false)
-        }
-    }, [id])
-
     useEffect(() => {
-        loadNote()
-    }, [loadNote])
+        if (!id) return
+
+        if (isError) {
+            setError('加载失败')
+            return
+        }
+
+        setError(null)
+        setNotFound(false)
+
+        if (noteData === null) {
+            setNotFound(true)
+            setNote(null)
+            return
+        }
+
+        if (noteData) {
+            setNote(noteData)
+            setTitle(noteData.title || '')
+            setContent(noteData.content || '')
+        }
+    }, [id, isError, noteData])
 
     const saveNote = useCallback(
         async (newTitle: string, newContent: string) => {
             if (!id) return
             try {
                 setSaving(true)
-                const updated = await updateNote(id, { title: newTitle, content: newContent })
+                const updated = await updateNoteMutation({
+                    id,
+                    updates: { title: newTitle, content: newContent },
+                }).unwrap()
                 setNote(updated)
             } catch (err) {
                 console.error('保存失败:', err)
@@ -88,7 +99,7 @@ export function NoteDetail() {
                 setSaving(false)
             }
         },
-        [id]
+        [id, updateNoteMutation]
     )
 
     const debouncedSave = useDebounce(saveNote, 300)
@@ -127,7 +138,7 @@ export function NoteDetail() {
 
         try {
             setDeleting(true)
-            await deleteNote(id)
+            await deleteNoteMutation(id).unwrap()
             navigate('/notes')
         } catch (err) {
             setError(err instanceof Error ? err.message : '删除失败')
@@ -187,7 +198,10 @@ export function NoteDetail() {
         if (id) {
             try {
                 setSaving(true)
-                const updated = await updateNote(id, { title, content: newContent })
+                const updated = await updateNoteMutation({
+                    id,
+                    updates: { title, content: newContent },
+                }).unwrap()
                 setNote(updated)
             } catch (err) {
                 console.error('保存失败:', err)
@@ -227,7 +241,7 @@ export function NoteDetail() {
     if (error) {
         return (
             <div className={styles.container}>
-                <ErrorMessage message={error} onRetry={loadNote} />
+                <ErrorMessage message={error} onRetry={refetch} />
             </div>
         )
     }

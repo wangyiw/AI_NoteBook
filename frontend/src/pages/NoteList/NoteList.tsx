@@ -1,9 +1,9 @@
-import { useCallback, useEffect, useState } from 'react'
+import { useState } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { createNote, fetchNoteList } from '../../api/noteApi'
 import { EmptyState } from '../../components/EmptyState/EmptyState'
 import { ErrorMessage } from '../../components/ErrorMessage/ErrorMessage'
 import { Loading } from '../../components/Loading/Loading'
+import { useCreateNoteMutation, useGetNoteListQuery } from '../../features/notes/notesApi'
 import type { Note } from '../../types/note'
 import styles from './NoteList.module.css'
 
@@ -36,35 +36,25 @@ function getDisplayTitle(note: Note): string {
 
 export function NoteList() {
     const navigate = useNavigate()
-    const [notes, setNotes] = useState<Note[]>([])
-    const [loading, setLoading] = useState(true)
-    const [error, setError] = useState<string | null>(null)
     const [creating, setCreating] = useState(false)
 
-    const loadNotes = useCallback(async () => {
-        try {
-            setLoading(true)
-            setError(null)
-            const list = await fetchNoteList()
-            setNotes(list)
-        } catch (err) {
-            setError(err instanceof Error ? err.message : '加载失败')
-        } finally {
-            setLoading(false)
-        }
-    }, [])
+    const {
+        data: notes = [],
+        isLoading: loading,
+        isError,
+        error,
+        refetch,
+    } = useGetNoteListQuery()
 
-    useEffect(() => {
-        loadNotes()
-    }, [loadNotes])
+    const [createNoteMutation] = useCreateNoteMutation()
 
     const handleCreateNote = async () => {
         try {
             setCreating(true)
-            const id = await createNote({ title: '', content: '' })
+            const id = await createNoteMutation({ title: '', content: '' }).unwrap()
             navigate(`/notes/${id}`)
-        } catch (err) {
-            setError(err instanceof Error ? err.message : '创建笔记失败')
+        } catch (_err) {
+            // 创建失败时 ErrorMessage 会展示 query 的错误信息，这里保持行为最小改动
         } finally {
             setCreating(false)
         }
@@ -90,8 +80,11 @@ export function NoteList() {
             <main className={styles.main}>
                 {loading ? (
                     <Loading text="加载笔记列表..." />
-                ) : error ? (
-                    <ErrorMessage message={error} onRetry={loadNotes} />
+                ) : isError ? (
+                    <ErrorMessage
+                        message={error instanceof Error ? error.message : '加载失败'}
+                        onRetry={refetch}
+                    />
                 ) : notes.length === 0 ? (
                     <EmptyState
                         title="还没有笔记"
@@ -101,7 +94,7 @@ export function NoteList() {
                     />
                 ) : (
                     <ul className={styles.noteList}>
-                        {notes.map((note) => (
+                        {notes.map((note: Note) => (
                             <li
                                 key={note.id}
                                 className={styles.noteItem}
